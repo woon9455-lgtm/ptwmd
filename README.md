@@ -2,7 +2,7 @@
 
 조사한 자료(글·사진·링크)를 붙여넣어 PPT처럼 정리하는 웹 편집기입니다.
 
-- 운영: https://searchmd.pages.dev (Cloudflare Pages)
+- 운영: https://searchmd-3rh.pages.dev (Cloudflare Pages 프로젝트 `searchmd` — `searchmd.pages.dev`는 이미 다른 사람이 사용 중이라 자동 배정된 주소)
 - 저장소: https://github.com/woon9455-lgtm/ptwmd
 
 ## 기능
@@ -43,8 +43,8 @@ npm run cf:create  # searchmd 프로젝트 생성 (production 브랜치 = main)
 배포:
 
 ```bash
-npm run deploy           # 운영 → https://searchmd.pages.dev
-npm run deploy:preview   # 미리보기 → https://preview.searchmd.pages.dev
+npm run deploy           # 운영 → https://searchmd-3rh.pages.dev
+npm run deploy:preview   # 미리보기 → https://preview.searchmd-3rh.pages.dev
 ```
 
 설정은 `wrangler.toml`, 응답 헤더는 `public/_headers`에 있습니다.
