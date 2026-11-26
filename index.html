@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="description" content="조사 자료(글·사진·링크)를 붙여넣어 슬라이드로 정리하는 웹 편집기" />
-    <title>searchmd — 리서치 슬라이드</title>
+    <meta name="robots" content="noindex" />
+    <title>searchmd</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link
       rel="stylesheet"
@@ -12,65 +13,133 @@
     />
   </head>
   <body>
-    <div class="bar">
-      <input class="docname" id="docName" title="문서 제목" />
-      <span class="sep"></span>
-      <div class="menuWrap">
-        <button class="primary" id="btnAdd" title="새 슬라이드 (Ctrl+M)">＋ 새 슬라이드 ▾</button>
-        <div class="menu grid" id="layMenu"></div>
-      </div>
-      <select id="laySel" title="현재 슬라이드 레이아웃"></select>
-      <select id="themeSel" title="테마">
-        <option value="light">테마: 화이트</option>
-        <option value="gray">테마: 그레이</option>
-        <option value="black">테마: 블랙</option>
-        <option value="blue">테마: 블루</option>
-        <option value="mono">테마: 모노</option>
-      </select>
-      <span class="sep"></span>
-      <button data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b></button>
-      <button data-cmd="italic" title="기울임 (Ctrl+I)"><i>I</i></button>
-      <button data-cmd="underline" title="밑줄 (Ctrl+U)"><u>U</u></button>
-      <button data-cmd="hilite" title="형광펜"><mark style="background: #fde68a">가</mark></button>
-      <button data-cmd="insertUnorderedList" title="글머리 기호">• 목록</button>
-      <button data-cmd="insertOrderedList" title="번호 목록">1. 목록</button>
-      <button data-cmd="removeFormat" title="서식 지우기">⌫ 서식</button>
-      <span class="sep"></span>
-      <button id="btnLink" title="링크 삽입 (Ctrl+K)">🔗 링크</button>
-      <span class="sep"></span>
-      <div class="menuWrap">
-        <button id="btnFile">📁 파일 ▾</button>
-        <div class="menu" id="fileMenu">
-          <button class="item" id="mDocs">🗂 문서 목록</button>
-          <button class="item" id="mNew">🗒 새 문서</button>
-          <button class="item" id="mExport">💾 파일로 저장 (.json)</button>
-          <button class="item" id="mImport">📂 파일 불러오기 (새 문서로)</button>
-          <button class="item" id="mPrint">🖨 PDF로 저장 / 인쇄</button>
-        </div>
-      </div>
-      <button class="primary" id="btnPresent" title="발표 (F5)">▶ 발표</button>
-      <span class="status" id="status"></span>
-      <input type="file" id="fileIn" accept=".json,application/json" hidden />
-      <input type="file" id="imgIn" accept="image/*" multiple hidden />
+    <div id="bootView" class="boot">불러오는 중…</div>
+
+    <!-- ============ 로그인 ============ -->
+    <div id="loginView" class="login" hidden>
+      <form id="loginForm" class="lcard">
+        <img src="/favicon.svg" width="48" height="48" alt="" />
+        <h1>searchmd</h1>
+        <p>조사 자료 드라이브</p>
+        <input type="password" id="loginPw" placeholder="비밀번호" autocomplete="current-password" required />
+        <button type="submit" id="loginBtn">로그인</button>
+        <div id="loginErr" class="lerr" role="alert"></div>
+      </form>
     </div>
 
-    <main>
-      <aside id="thumbs"></aside>
-      <div id="center">
-        <section id="stage">
-          <div id="slideWrap"><div class="slide" id="slide"></div></div>
-        </section>
-        <div id="notesBox">
-          <textarea id="notes" placeholder="메모 (발표·출력에는 나오지 않는 나만의 조사 메모)"></textarea>
+    <!-- ============ 드라이브 ============ -->
+    <div id="driveView" class="drive" hidden>
+      <aside class="dside">
+        <a class="brand" href="/" data-nav="/"><img src="/favicon.svg" width="28" height="28" alt="" /> searchmd</a>
+        <div class="newWrap">
+          <button id="dNew" class="newBtn"><span>＋</span> 새로 만들기</button>
+          <div class="menu" id="dNewMenu">
+            <button class="item" data-new="doc">🗒 새 문서</button>
+            <button class="item" data-new="folder">📁 새 폴더</button>
+            <button class="item" data-new="import">📂 파일 불러오기 (.json)</button>
+          </div>
         </div>
-        <div class="hint">
-          사진 칸: 클릭해서 고르기 · 파일/웹 이미지 끌어다 놓기 · 마우스 올리고 Ctrl+V (여러 장 고르면 빈 칸에 차례로) ·
-          글: Ctrl+V 붙여넣기 · Ctrl+K 링크 · Ctrl+클릭 링크 열기 · Ctrl+M 새 슬라이드 · F5 발표
+        <nav class="dnav">
+          <a href="/" data-nav="/" data-drop="">🏠 내 드라이브</a>
+          <div id="dTree" class="dtree"></div>
+          <a href="/recent" data-nav="/recent">🕘 최근 문서</a>
+          <a href="/starred" data-nav="/starred">⭐ 중요 문서</a>
+          <a href="/trash" data-nav="/trash">🗑 휴지통</a>
+        </nav>
+        <div class="dfoot">
+          <button id="dLocal" class="localBtn" hidden></button>
+          <button id="dLogout" class="linkBtn">로그아웃</button>
         </div>
-      </div>
-    </main>
+      </aside>
+      <section class="dmain">
+        <header class="dtop">
+          <form class="search" id="dSearchForm">
+            <span>🔍</span><input id="dSearch" type="search" placeholder="드라이브에서 검색 (제목·내용)" />
+          </form>
+        </header>
+        <div class="dbody" id="dBody">
+          <div class="dhead">
+            <div class="crumbs" id="dCrumbs"></div>
+            <button id="dEmptyTrash" class="linkBtn danger" hidden>휴지통 비우기</button>
+          </div>
+          <section id="dFoldersSec" class="dsec">
+            <h4>폴더</h4>
+            <div class="fgrid" id="dFolders"></div>
+          </section>
+          <section id="dDocsSec" class="dsec">
+            <h4 id="dDocsTitle">문서</h4>
+            <div class="cgrid" id="dDocs"></div>
+          </section>
+          <div class="dempty" id="dEmpty" hidden></div>
+        </div>
+      </section>
+    </div>
 
+    <!-- ============ 편집기 ============ -->
+    <div id="editorView" class="editor" hidden>
+      <div class="bar">
+        <button id="btnHome" class="homeBtn" title="드라이브로">◀ 드라이브</button>
+        <input class="docname" id="docName" title="문서 제목" />
+        <span class="sep"></span>
+        <div class="menuWrap">
+          <button class="primary" id="btnAdd" title="새 슬라이드 (Ctrl+M)">＋ 새 슬라이드 ▾</button>
+          <div class="menu grid" id="layMenu"></div>
+        </div>
+        <select id="laySel" title="현재 슬라이드 레이아웃"></select>
+        <select id="themeSel" title="테마">
+          <option value="light">테마: 화이트</option>
+          <option value="gray">테마: 그레이</option>
+          <option value="black">테마: 블랙</option>
+          <option value="blue">테마: 블루</option>
+          <option value="mono">테마: 모노</option>
+        </select>
+        <span class="sep"></span>
+        <button data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b></button>
+        <button data-cmd="italic" title="기울임 (Ctrl+I)"><i>I</i></button>
+        <button data-cmd="underline" title="밑줄 (Ctrl+U)"><u>U</u></button>
+        <button data-cmd="hilite" title="형광펜"><mark style="background: #fde68a">가</mark></button>
+        <button data-cmd="insertUnorderedList" title="글머리 기호">• 목록</button>
+        <button data-cmd="insertOrderedList" title="번호 목록">1. 목록</button>
+        <button data-cmd="removeFormat" title="서식 지우기">⌫ 서식</button>
+        <span class="sep"></span>
+        <button id="btnLink" title="링크 삽입 (Ctrl+K)">🔗 링크</button>
+        <span class="sep"></span>
+        <div class="menuWrap">
+          <button id="btnFile">📁 파일 ▾</button>
+          <div class="menu" id="fileMenu">
+            <button class="item" id="mNew">🗒 새 문서 (같은 폴더에)</button>
+            <button class="item" id="mPresentLink">🔗 발표 링크 복사</button>
+            <button class="item" id="mExport">💾 파일로 내려받기 (.json)</button>
+            <button class="item" id="mImport">📂 파일 불러오기 (새 문서로)</button>
+            <button class="item" id="mPrint">🖨 PDF로 저장 / 인쇄</button>
+          </div>
+        </div>
+        <button class="primary" id="btnPresent" title="발표 (F5)">▶ 발표</button>
+        <span class="status" id="status"></span>
+      </div>
+
+      <main>
+        <aside id="thumbs"></aside>
+        <div id="center">
+          <section id="stage">
+            <div id="slideWrap"><div class="slide" id="slide"></div></div>
+          </section>
+          <div id="notesBox">
+            <textarea id="notes" placeholder="메모 (발표·출력에는 나오지 않는 나만의 조사 메모)"></textarea>
+          </div>
+          <div class="hint">
+            사진 칸: 클릭해서 고르기 · 파일/웹 이미지 끌어다 놓기 · 마우스 올리고 Ctrl+V (여러 장 고르면 빈 칸에 차례로)
+            · 글: Ctrl+V 붙여넣기 · Ctrl+K 링크 · Ctrl+클릭 링크 열기 · Ctrl+M 새 슬라이드 · F5 발표
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- ============ 공용 ============ -->
+    <input type="file" id="fileIn" accept=".json,application/json" hidden />
+    <input type="file" id="imgIn" accept="image/*" multiple hidden />
     <div id="pop"></div>
+    <div id="ctx" class="ctx" hidden></div>
 
     <dialog id="linkDlg">
       <h3>링크 삽입</h3>
@@ -90,17 +159,26 @@
       </div>
     </dialog>
 
-    <dialog id="docsDlg">
-      <h3>문서 목록</h3>
-      <div id="docsList"></div>
+    <dialog id="nameDlg">
+      <h3 id="nameTitle">이름</h3>
+      <input type="text" id="nameIn" maxlength="100" />
       <div class="row">
-        <button type="button" id="docsNew">＋ 새 문서</button
-        ><button type="button" class="ok" id="docsClose">닫기</button>
+        <button type="button" id="nameCancel">취소</button><button type="button" class="ok" id="nameOk">확인</button>
+      </div>
+    </dialog>
+
+    <dialog id="moveDlg">
+      <h3>어디로 옮길까요?</h3>
+      <div id="moveTree" class="mtree"></div>
+      <div class="row">
+        <button type="button" id="moveCancel">취소</button
+        ><button type="button" class="ok" id="moveOk">여기로 이동</button>
       </div>
     </dialog>
 
     <div id="present" hidden>
       <div id="pwrap"><div class="slide" id="pslide"></div></div>
+      <button id="pexit" title="발표 끝내기 (Esc)">✕</button>
       <div id="pcount"></div>
     </div>
     <div id="printArea"></div>

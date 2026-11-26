@@ -1,6 +1,6 @@
 {
   "name": "searchmd",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "조사 자료(글·사진·링크)를 붙여넣어 슬라이드로 정리하는 웹 편집기",
   "type": "module",
@@ -8,7 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -k -n web,api -c blue,green \"vite\" \"npm:dev:api\"",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -21,10 +21,16 @@
     "cf:whoami": "wrangler whoami",
     "cf:create": "wrangler pages project create searchmd --production-branch main",
     "deploy": "npm run build && wrangler pages deploy dist --project-name searchmd --branch main",
-    "deploy:preview": "npm run build && wrangler pages deploy dist --project-name searchmd --branch preview"
+    "deploy:preview": "npm run build && wrangler pages deploy dist --project-name searchmd --branch preview",
+    "dev:web": "vite",
+    "dev:api": "node scripts/wrangler-local.mjs pages dev public --port 8799 --ip 127.0.0.1",
+    "db:migrate:local": "node scripts/wrangler-local.mjs d1 migrations apply searchmd --local",
+    "db:migrate:remote": "wrangler d1 migrations apply searchmd --remote",
+    "cf:secret": "wrangler pages secret put APP_PASSWORD --project-name searchmd"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.7",
     "eslint": "^10.15.0",
     "globals": "^17.14.0",
     "jsdom": "^31.0.1",

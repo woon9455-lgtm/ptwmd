@@ -585,3 +585,17 @@
 .stat .r-desc {
   font-size: 18px;
 }
+
+/* 사진 올리는 중 */
+.frame.loading::before {
+  content: '사진 올리는 중…';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--muted);
+  font-size: 18px;
+}

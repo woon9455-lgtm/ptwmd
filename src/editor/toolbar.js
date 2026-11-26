@@ -9,7 +9,8 @@ import { openLinkDlg } from './links.js';
 import { present, isPresenting, presentKey } from './present.js';
 import { handleFrameKey } from './frames.js';
 import { hidePop } from './popover.js';
-import { createDoc, showDocList, exportDoc, importFile, printDoc } from './docs.js';
+import { createDoc, exportDoc, pickImport, printDoc, copyPresentLink } from './docs.js';
+import { navigate, folderPath } from '../router.js';
 
 function closeMenus(except) {
   $$('.menu').forEach((m) => m !== except && m.classList.remove('open'));
@@ -47,6 +48,7 @@ function runFormat(cmd) {
 function onKeydown(e) {
   if (isPresenting()) return presentKey(e);
   const ctrl = e.ctrlKey || e.metaKey;
+  if ($('#editorView').hidden || !S.doc || $$('dialog').some((d) => d.open)) return; // 편집 화면일 때만
   const key = e.key.toLowerCase();
   if (e.key === 'F5') {
     e.preventDefault();
@@ -126,22 +128,12 @@ export function initToolbar() {
     closeMenus();
     fn();
   };
-  $('#mDocs').onclick = fileAction(showDocList);
-  $('#mNew').onclick = fileAction(() => createDoc().then(() => toast('새 문서를 만들었어요')));
+  $('#mNew').onclick = fileAction(() => createDoc(S.doc.folderId || null));
+  $('#mPresentLink').onclick = fileAction(copyPresentLink);
   $('#mExport').onclick = fileAction(exportDoc);
-  $('#mImport').onclick = fileAction(() => $('#fileIn').click());
+  $('#mImport').onclick = fileAction(() => pickImport(S.doc.folderId || null));
   $('#mPrint').onclick = fileAction(printDoc);
-  $('#fileIn').onchange = async (e) => {
-    const f = e.target.files[0];
-    if (f) await importFile(f);
-    e.target.value = '';
-  };
-  $('#docsNew').onclick = async () => {
-    $('#docsDlg').close();
-    await createDoc();
-    toast('새 문서를 만들었어요');
-  };
-  $('#docsClose').onclick = () => $('#docsDlg').close();
+  $('#btnHome').onclick = () => navigate(folderPath(S.doc?.folderId));
 
   $('#btnPresent').onclick = () => present(S.cur);
   document.addEventListener('keydown', onKeydown);

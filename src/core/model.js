@@ -7,6 +7,7 @@
 import { LAYOUTS, THEMES, DEFAULT_LAYOUT, isFrameKey, isOptionKey } from './layouts.js';
 import { sanitize } from '../lib/sanitize.js';
 import { plain } from '../lib/dom.js';
+import { isSafeImgSrc } from '../lib/url.js';
 
 export const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
 
@@ -71,7 +72,7 @@ export function normalizeDoc(raw, { clean = false } = {}) {
     const fields = {};
     for (const [k, v] of Object.entries(s.fields || {})) {
       if (typeof v !== 'string') continue;
-      if (isFrameKey(k)) fields[k] = /^(https?:|data:image\/)/i.test(v) ? v : '';
+      if (isFrameKey(k)) fields[k] = isSafeImgSrc(v) ? v : '';
       else if (isOptionKey(k)) fields[k] = v === 'contain' ? 'contain' : '';
       else fields[k] = clean ? sanitize(v) : v;
     }
@@ -83,5 +84,11 @@ export function normalizeDoc(raw, { clean = false } = {}) {
     });
   }
   if (!doc.slides.length) doc.slides.push(newSlide());
+  // 서버에서 받은 문서의 관리 정보는 그대로 유지
+  if (Number.isInteger(raw.version)) doc.version = raw.version;
+  if (raw.folderId !== undefined) doc.folderId = raw.folderId || null;
   return doc;
 }
+
+/** 서버에 저장할 본문만 (id·version 같은 관리 정보 제외) */
+export const docBody = (doc) => ({ title: doc.title, theme: doc.theme, slides: doc.slides });

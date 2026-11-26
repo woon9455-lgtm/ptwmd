@@ -38,10 +38,10 @@ export function paintFrame(frame, slide) {
  * @param {object} slide
  * @param {'edit'|'view'|'preview'} mode edit=편집 가능, view=보기(썸네일·발표·인쇄), preview=레이아웃 미리보기(빈칸 안내 표시)
  */
-export function renderSlide(host, slide, mode) {
+export function renderSlide(host, slide, mode, theme = S.doc?.theme || 'light') {
   const L = LAYOUTS[slide.layout] || LAYOUTS.content;
   host.className = `slide L-${LAYOUTS[slide.layout] ? slide.layout : 'content'} ${L.cls || ''} ${mode === 'view' ? 'view' : 'edit'}`;
-  host.dataset.theme = S.doc?.theme || 'light';
+  host.dataset.theme = theme;
   host.innerHTML = L.tpl;
   if (L.areas) for (const c of host.children) c.style.gridArea = c.dataset.k;
 

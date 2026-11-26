@@ -2,7 +2,7 @@
  * 붙여넣은 HTML 정리.
  * 허용한 태그(굵게·목록·표·링크·이미지 등)만 남기고 스타일·스크립트는 제거한다.
  */
-import { URL_RE, safeUrl } from './url.js';
+import { URL_RE, safeUrl, isSafeImgSrc } from './url.js';
 
 const ALLOWED = {
   B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', A: 'a', BR: 'br', P: 'p', DIV: 'p',
@@ -58,7 +58,7 @@ export function sanitize(html) {
       }
       if (m === 'img') {
         const s = n.getAttribute('src');
-        if (s && /^(https?:|data:image\/)/i.test(s)) {
+        if (isSafeImgSrc(s)) {
           const img = document.createElement('img');
           img.setAttribute('src', s);
           const st = n.getAttribute('style');

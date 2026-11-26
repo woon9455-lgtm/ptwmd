@@ -2,3 +2,19 @@
 name = "searchmd"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-11-01"
+
+# 문서·폴더 (D1)
+[[d1_databases]]
+binding = "DB"
+database_name = "searchmd"
+database_id = "77a3e812-4325-4b3d-8922-eedde2df9b38"
+migrations_dir = "migrations"
+
+# 사진 파일 (KV)
+[[kv_namespaces]]
+binding = "FILES"
+id = "63bc790ab42240f98a32660bd6cf2f29"
+
+# 비밀번호(APP_PASSWORD)는 여기에 쓰지 말고 secret으로 넣는다:
+#   npx wrangler pages secret put APP_PASSWORD --project-name searchmd
+# 로컬 개발용은 .dev.vars 파일에 APP_PASSWORD=... 로 넣는다 (git에 올라가지 않음)

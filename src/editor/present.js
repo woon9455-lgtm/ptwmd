@@ -1,4 +1,4 @@
-/** 발표 모드 (F5) */
+/** 발표 모드 (F5, 또는 주소 /p/문서id 로 바로 발표) */
 import { S, W, H } from '../state.js';
 import { $ } from '../lib/dom.js';
 import { renderSlide } from './render.js';
@@ -6,13 +6,19 @@ import { select } from './slides.js';
 import { follow } from './links.js';
 
 let idx = 0;
+let onExit = null;
 
 export const isPresenting = () => !$('#present').hidden;
 
-export function present(from = 0) {
+/**
+ * @param {number} from 시작 슬라이드
+ * @param {{onExit?: (idx:number)=>void}} opts 끝냈을 때 할 일 (없으면 편집 화면의 그 슬라이드로)
+ */
+export function present(from = 0, opts = {}) {
   idx = from;
+  onExit = opts.onExit || null;
   $('#present').hidden = false;
-  document.documentElement.requestFullscreen?.().catch(() => {});
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
   showP(idx);
 }
 
@@ -31,10 +37,16 @@ export function scaleP() {
   $('#pslide').style.transform = `scale(${k})`;
 }
 
-export function exitP() {
+/** @param {boolean} runExit false면 끝낸 뒤 할 일을 실행하지 않는다 (다른 화면으로 이동할 때) */
+export function exitP(runExit = true) {
+  if (!isPresenting()) return;
   $('#present').hidden = true;
-  if (document.fullscreenElement) document.exitFullscreen();
-  select(idx);
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  const fn = onExit;
+  onExit = null;
+  if (!runExit) return;
+  if (fn) fn(idx);
+  else select(idx);
 }
 
 /** 발표 중 키 처리 */
@@ -53,6 +65,7 @@ export function presentKey(e) {
 export function initPresent() {
   const el = $('#present');
   el.addEventListener('click', (e) => {
+    if (e.target.closest('#pexit')) return exitP();
     // 링크를 누르거나, 링크가 있는 카드의 아무 곳이나 누르면 그 링크를 연다
     const a = e.target.closest('a') || e.target.closest('.card,.hcard')?.querySelector('a');
     if (a) {

@@ -1,7 +1,8 @@
 /** 사진 칸: 클릭해서 고르기 · 끌어다 놓기 · Ctrl+V 붙여넣기 */
 import { S, curSlide } from '../state.js';
-import { $, toast } from '../lib/dom.js';
+import { $, toast, setStatus } from '../lib/dom.js';
 import { fileToDataUrl, dtImages } from '../lib/images.js';
+import { persistSrc } from '../lib/upload.js';
 import { paintFrame } from './render.js';
 import { save, refreshThumb } from './editing.js';
 import { hidePop, showPopAt, setPop } from './popover.js';
@@ -16,8 +17,11 @@ export function pickImage(frame) {
   input.click();
 }
 
-/** 첫 장은 고른 칸에, 나머지는 그 뒤(모자라면 앞)의 빈 칸에 차례로 넣는다 */
-export function fillFrames(frame, srcs) {
+/**
+ * 첫 장은 고른 칸에, 나머지는 그 뒤(모자라면 앞)의 빈 칸에 차례로 넣는다.
+ * 붙여넣은 사진(data:)은 서버에 올린 뒤 서버 주소로 저장한다.
+ */
+export async function fillFrames(frame, srcs) {
   if (!srcs.length) return;
   const s = curSlide();
   const frames = [...$('#slide').querySelectorAll('.frame')];
@@ -25,15 +29,26 @@ export function fillFrames(frame, srcs) {
   if (idx < 0) return;
   const empty = (x) => !s.fields[x.dataset.k];
   const targets = [frame, ...frames.slice(idx + 1).filter(empty), ...frames.slice(0, idx).filter(empty)];
-  srcs.slice(0, targets.length).forEach((src, i) => {
-    s.fields[targets[i].dataset.k] = src;
-    paintFrame(targets[i], s);
-  });
+  const use = srcs.slice(0, targets.length);
   if (srcs.length > targets.length) toast(`칸이 부족해서 ${srcs.length - targets.length}장은 넣지 못했어요`);
+  hidePop();
+
+  targets.slice(0, use.length).forEach((t) => t.classList.add('loading'));
+  setStatus('사진 올리는 중…');
+  const results = await Promise.allSettled(use.map(persistSrc));
+  let failed = 0;
+  results.forEach((r, i) => {
+    const t = targets[i];
+    t.classList.remove('loading');
+    if (r.status !== 'fulfilled') return failed++;
+    s.fields[t.dataset.k] = r.value;
+    if (t.isConnected) paintFrame(t, s);
+  });
+  if (failed)
+    toast(`사진 ${failed}장을 올리지 못했어요: ${results.find((r) => r.status === 'rejected').reason?.message || ''}`);
   save();
   refreshThumb();
-  hidePop();
-  frame.focus();
+  if (frame.isConnected) frame.focus();
 }
 
 export function clearFrame(frame) {

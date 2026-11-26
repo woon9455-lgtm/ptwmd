@@ -34,3 +34,6 @@ export const isImgUrl = (u) => /^https?:\/\/\S+\.(png|jpe?g|gif|webp|avif|bmp|sv
 /** 슬라이드 내부 링크 */
 export const slideHref = (id) => '#slide-' + id;
 export const slideIdOf = (href) => (href?.startsWith('#slide-') ? href.slice(7) : null);
+
+/** 사진으로 허용하는 주소: 웹 주소, 붙여넣은 data:, 서버에 올린 사진 */
+export const isSafeImgSrc = (s) => /^(https?:\/\/|data:image\/|\/api\/images\/[a-f0-9]{8,40}$)/i.test(s || '');

@@ -1,100 +1,69 @@
-/** 문서 관리: 열기 · 새 문서 · 목록 · 파일 저장/불러오기 · 인쇄 */
+/** 편집기 문서 다루기: 서버에서 열기 · 새 문서 · 파일 내려받기/불러오기 · 인쇄 · 발표 링크 */
 import { S } from '../state.js';
-import * as store from '../core/storage.js';
-import { newDoc, normalizeDoc } from '../core/model.js';
-import { $, esc, toast, setStatus } from '../lib/dom.js';
-import { flushSave } from './editing.js';
+import { api } from '../api.js';
+import { newDoc, normalizeDoc, docBody } from '../core/model.js';
+import { $, toast, setStatus } from '../lib/dom.js';
+import { persistDocImages } from '../lib/upload.js';
+import { flushSave, setConflictHandler } from './editing.js';
 import { renderThumbs, renderEditor } from './slides.js';
 import { renderSlide, fit } from './render.js';
+import { navigate } from '../router.js';
 
-/** 문서를 화면에 띄운다 */
-export function showDoc(doc) {
+/** 문서를 편집 화면에 띄운다 */
+export function showDoc(doc, keepSlide = false) {
   S.doc = doc;
-  S.cur = Math.min(S.cur, doc.slides.length - 1);
+  S.cur = keepSlide ? Math.min(S.cur, doc.slides.length - 1) : 0;
   $('#docName').value = doc.title;
-  document.title = `${doc.title} — searchmd`;
+  document.title = `${doc.title || '제목 없는 문서'} — searchmd`;
   renderThumbs();
   renderEditor();
-  store.setMeta('lastDoc', doc.id).catch(() => {});
 }
 
+/** 서버에서 문서를 받아 띄운다 (저장 대기 없이) */
+async function loadDoc(id) {
+  const keep = S.doc?.id === id;
+  const raw = await api.getDoc(id);
+  showDoc(normalizeDoc(raw), keep);
+  if (raw.trashedAt) toast('휴지통에 있는 문서예요. 드라이브의 휴지통에서 복원할 수 있어요');
+}
+
+/** 성공하면 true */
 export async function openDoc(id) {
   await flushSave();
-  const raw = await store.getDoc(id);
-  if (!raw) return toast('문서를 찾을 수 없어요');
-  S.cur = 0;
-  showDoc(normalizeDoc(raw));
-  setStatus('✓ 불러왔어요');
-}
-
-export async function createDoc(doc = newDoc()) {
-  await flushSave();
-  await store.putDoc(doc);
-  S.cur = 0;
-  showDoc(doc);
-  return doc;
-}
-
-/** 앱 시작: 마지막 문서 → 최근 문서 → 새 문서 */
-export async function startup() {
-  await store.migrateLegacy().catch(() => null);
-  const lastId = await store.getMeta('lastDoc').catch(() => null);
-  let raw = lastId ? await store.getDoc(lastId).catch(() => null) : null;
-  if (!raw) {
-    const list = await store.listDocs().catch(() => []);
-    if (list.length) raw = await store.getDoc(list[0].id);
-  }
-  if (raw) {
-    showDoc(normalizeDoc(raw));
-    setStatus('✓ 이전 작업을 불러왔어요');
-  } else {
-    await createDoc();
-  }
-}
-
-/* ---------- 문서 목록 ---------- */
-const fmtDate = (t) =>
-  t ? new Date(t).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-
-export async function showDocList() {
-  await flushSave();
-  const list = await store.listDocs();
-  const box = $('#docsList');
-  box.innerHTML = list.length
-    ? list
-        .map(
-          (d) => `<div class="docItem${d.id === S.doc.id ? ' current' : ''}" data-id="${esc(d.id)}">
-            <div class="info"><div class="name">${esc(d.title)}</div><div class="meta">슬라이드 ${d.count}장 · ${esc(fmtDate(d.updatedAt))}${d.id === S.doc.id ? ' · 지금 편집 중' : ''}</div></div>
-            <button data-a="open">열기</button><button class="del" data-a="del">삭제</button></div>`,
-        )
-        .join('')
-    : '<div class="docsEmpty">저장된 문서가 없어요</div>';
-  box.onclick = async (e) => {
-    const a = e.target.dataset.a;
-    const id = e.target.closest('.docItem')?.dataset.id;
-    if (!a || !id) return;
-    if (a === 'open') {
-      $('#docsDlg').close();
-      if (id !== S.doc.id) await openDoc(id);
-    } else if (a === 'del') {
-      const name = list.find((d) => d.id === id)?.title || '';
-      if (!confirm(`"${name}" 문서를 삭제할까요?\n삭제하면 되돌릴 수 없어요. (필요하면 먼저 "파일로 저장")`)) return;
-      await store.deleteDoc(id);
-      if (id === S.doc.id) {
-        const rest = (await store.listDocs()).filter((d) => d.id !== id);
-        S.doc = null; // 삭제한 문서가 다시 저장되지 않게
-        if (rest.length) await openDoc(rest[0].id);
-        else await createDoc();
-      }
-      showDocList();
+  setStatus('불러오는 중…');
+  try {
+    await loadDoc(id);
+    setStatus('');
+    return true;
+  } catch (err) {
+    if (err.status !== 401) {
+      toast(err.message);
+      navigate('/', { replace: true });
     }
-  };
-  if (!$('#docsDlg').open) $('#docsDlg').showModal();
+    return false;
+  }
+}
+
+/** 편집 화면을 떠날 때 */
+export async function closeDoc() {
+  await flushSave();
+  S.doc = null;
+}
+
+/** 새 문서를 서버에 만들고 편집 화면으로 */
+export async function createDoc(folderId = null) {
+  try {
+    await flushSave();
+    const { id } = await api.createDoc(docBody(newDoc('제목 없는 문서')), folderId);
+    navigate('/d/' + id);
+  } catch (err) {
+    toast(err.message);
+  }
 }
 
 /* ---------- 파일 ---------- */
 export function exportDoc() {
-  const blob = new Blob([JSON.stringify(S.doc)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(docBody(S.doc))], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = (S.doc.title || '조사자료').replace(/[\\/:*?"<>|]/g, '_') + '.json';
@@ -102,18 +71,22 @@ export function exportDoc() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-/** 불러온 파일은 항상 새 문서로 추가한다 (지금 문서를 덮어쓰지 않음) */
-export async function importFile(file) {
-  try {
-    const doc = normalizeDoc(JSON.parse(await file.text()), { clean: true });
-    const exists = await store.getDoc(doc.id);
-    if (exists) doc.id = newDoc().id; // 같은 문서를 또 불러오면 사본으로
-    await createDoc(doc);
-    toast('새 문서로 불러왔어요');
-  } catch (err) {
-    console.error(err);
-    alert('올바른 파일이 아니에요');
-  }
+/** .json 파일 → 서버에 새 문서로 (붙여넣었던 사진도 서버로 올림). 만든 문서 id를 돌려준다 */
+export async function importDocFile(file, folderId = null) {
+  const doc = normalizeDoc(JSON.parse(await file.text()), { clean: true });
+  setStatus('사진 올리는 중…');
+  await persistDocImages(doc);
+  const { id } = await api.createDoc(docBody(doc), folderId);
+  return id;
+}
+
+let importFolder = null;
+let afterImport = null;
+/** 파일 고르기 창을 열어 불러온다 */
+export function pickImport(folderId, done) {
+  importFolder = folderId;
+  afterImport = done;
+  $('#fileIn').click();
 }
 
 export function printDoc() {
@@ -127,5 +100,48 @@ export function printDoc() {
   setTimeout(() => {
     pa.querySelectorAll('.region').forEach(fit);
     window.print();
-  }, 400);
+  }, 600);
+}
+
+export const presentUrl = (id, slide = 0) => `${location.origin}/p/${id}${slide ? '?s=' + (slide + 1) : ''}`;
+
+export function copyPresentLink() {
+  navigator.clipboard
+    .writeText(presentUrl(S.doc.id))
+    .then(() => toast('발표 링크를 복사했어요 (로그인한 브라우저에서 열려요)'));
+}
+
+export function initDocs() {
+  $('#fileIn').onchange = async (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const id = await importDocFile(f, importFolder);
+      toast('새 문서로 불러왔어요');
+      afterImport ? afterImport(id) : navigate('/d/' + id);
+    } catch (err) {
+      console.error(err);
+      toast(err instanceof SyntaxError ? '올바른 파일이 아니에요' : err.message || '불러오지 못했어요');
+    }
+  };
+
+  // 다른 브라우저/탭에서 먼저 저장했을 때
+  setConflictHandler(async (doc) => {
+    const reload = confirm(
+      '다른 브라우저(또는 탭)에서 이 문서가 먼저 수정됐어요.\n\n' +
+        '[확인] 최신 내용 불러오기 — 여기서 방금 바꾼 내용은 사라져요\n' +
+        '[취소] 지금 여기 내용으로 덮어쓰기',
+    );
+    if (reload)
+      setTimeout(
+        () =>
+          S.doc === doc &&
+          loadDoc(doc.id)
+            .then(() => setStatus('✓ 최신 내용을 불러왔어요'))
+            .catch((e) => toast(e.message)),
+        0,
+      );
+    return !reload;
+  });
 }
